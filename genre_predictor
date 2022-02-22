@@ -1,0 +1,97 @@
+from __future__ import unicode_literals
+import youtube_dl
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import os
+import librosa
+import librosa.display
+import IPython
+from IPython.display import Audio
+import tensorflow as tf
+
+opt= 'y'
+
+
+def music_genre(link):
+        ydl_opts = {
+            'format': 'worstaudio/worst',
+            'outtmpl': '/content/music.mp3',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+                
+            }],
+        }
+
+        if(os.path.exists("/content/music.mp3")):
+            os.remove("/content/music.mp3")
+        
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([link])
+        audio = "/content/music.mp3"
+        data, sr = librosa.load(audio, duration=30)
+
+        inp=[]
+        inp.append(data.shape[0])
+        chroma=librosa.feature.chroma_stft(data, sr=sr)
+        inp.append(chroma.mean())
+        inp.append(chroma.var())
+        inp.append(librosa.feature.rms(data).mean())
+        inp.append(librosa.feature.rms(data).var())
+        inp.append(librosa.feature.spectral_centroid(data, sr=sr).mean())
+        inp.append(librosa.feature.spectral_centroid(data, sr=sr).var())
+        inp.append(librosa.feature.spectral_bandwidth(data, sr=sr).mean())
+        inp.append(librosa.feature.spectral_bandwidth(data, sr=sr).var())
+        inp.append(librosa.feature.spectral_rolloff(data, sr=sr).mean())
+        inp.append(librosa.feature.spectral_rolloff(data, sr=sr).var())
+        inp.append(librosa.feature.zero_crossing_rate(data).mean())
+        inp.append(librosa.feature.zero_crossing_rate(data).var())
+        inp.append(librosa.effects.harmonic(data).mean())
+        inp.append(librosa.effects.harmonic(data).var())
+        inp.append(librosa.effects.percussive(data).mean())
+        inp.append(librosa.effects.percussive(data).var())
+        onset_env = librosa.onset.onset_strength(data, sr=sr)
+        inp.append(librosa.beat.tempo(onset_envelope=onset_env, sr=sr)[0])
+        inp.append(librosa.feature.mfcc(data, sr=sr,n_mfcc=1).mean())
+        inp.append(librosa.feature.mfcc(data, sr=sr,n_mfcc=1).var())
+
+        idf = pd.read_csv('/content/sample_data/features_30_sec.csv')  #for standardizing the input
+        idf=idf.drop(labels='filename',axis=1)
+        idf.drop(idf.iloc[:, 20:59], inplace = True, axis = 1)
+        fit=StandardScaler()
+        idf.loc[len(df.index)] = inp
+        fitar=np.array(idf.iloc[:,:],dtype = float)
+        fit=StandardScaler()
+        X = fit.fit_transform(fitar)
+        end=len(idf.index)
+        pred=model(X[end-1:end])
+
+        a=np.array(pred)
+        ind = np.where(a == a.max())
+
+        genredic={
+            0: "blues"
+            ,1: "classical"
+            ,2: "country"
+            ,3: "disco"
+            ,4: "hiphop"
+            ,5: "jazz"
+            ,6: "metal"
+            ,7: "pop"
+            ,8: "reggae"
+            ,9: "rock"
+
+        }
+        print("\n\n Genre:"+ genredic[ind[1][0]])
+        IPython.display.Audio(data,rate=sr)
+
+model = tf.keras.models.load_model('/content/my_model')  #loading the model
+while(opt=='y'):
+    print("Paste youtube link of the music")
+    link=input()
+    music_genre(link)
+    print("\n\n Continue? (y/n)")
+    opt=input()
