@@ -1,0 +1,70 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy
+import sys
+import os
+import pickle
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import tensorflow as tf
+from tensorflow import keras as k
+from keras.models import Sequential
+
+df = pd.read_csv('/content/sample_data/features_30_sec.csv')  #directory of the dataset
+df=df.drop(labels='filename',axis=1)
+df.drop(df.iloc[:, 20:58], inplace = True, axis = 1)
+class_list=df.iloc[:,-1]
+
+converter=LabelEncoder()
+y=converter.fit_transform(class_list)
+
+df.drop(df.iloc[:, 20:21], inplace = True, axis = 1)   
+fitar=np.array(df.iloc[:,:],dtype = float)
+from sklearn.preprocessing import StandardScaler     #standardisation
+fit=StandardScaler()
+X = fit.fit_transform(fitar)
+
+X_train, X_test,y_train,y_test = train_test_split(X,y,test_size=0.33)
+
+def trainModel(model, epochs, optimizer):
+    batch_size = 128
+    model.compile(optimizer=optimizer,
+                  loss='sparse_categorical_crossentropy',
+                  metrics='accuracy'
+                  )
+    return model.fit(X_train, y_train, validation_data=(X_test,y_test), epochs=epochs,
+                      batch_size=batch_size)
+
+def plotValidate(history):
+   print("validation accuracy", max(history.history["val_acc"]))
+   pd.Datarame(history.history).plot(figsize=(12,6))
+   plt.show()
+
+model = k.models.Sequential([
+              k.layers.Dense(512, activation='relu',input_shape=(X_train.shape[1],)),
+              k.layers.Dropout(0.2),
+
+              k.layers.Dense(256, activation='relu'),
+              k.layers.Dropout(0.2),
+
+              k.layers.Dense(128, activation='relu'),
+              k.layers.Dropout(0.2),
+
+              k.layers.Dense(64, activation='relu'),
+              k.layers.Dropout(0.2),
+
+              k.layers.Dense(10, activation='softmax'),
+              
+
+
+])
+
+print(model.summary())
+
+model_history=trainModel(model=model,epochs=600,optimizer='adam')
+test_loss,test_acc = model.evaluate(X_test,y_test,batch_size=128)
+print("loss=",test_loss)
+print("\ntest accuracy=",test_acc)
+
+model.save('/content/my_model') #saving the model
